@@ -1,13 +1,15 @@
 from pyrogram import Client, filters
-from pyrogram.types import Message
 
-BOT_TOKEN = "8051082366:AAECqW7-a_x135g2iDpUG7-1_eYowURM7Bw"
+# Bot token dalen yahan
+BOT_TOKEN = "8350094964:AAGuq7wGITTob4ASpHj6dxDmVIxppqNlhBY"
 
+# Bot ko initialize karen
 app = Client("demoescrowerbot", bot_token=BOT_TOKEN)
 
+# /start command handle karne ke liye
 @app.on_message(filters.command("start"))
-async def start_message(client: Client, message: Message):
-    text = """
+async def start(client, message):
+    await message.reply_text("""
 💫 @DemoescrowerBot 💫
 Your Trustworthy Telegram Escrow Service
 
@@ -22,7 +24,7 @@ Avoid scams, your funds are safeguarded throughout your deals. If you run into a
 💬 Proceed with /escrow (to start with a new escrow)
 
 ⚠️ IMPORTANT - Make sure coin is same of Buyer and Seller else you may lose your coin.
-"""
-    await message.reply_text(text)
+""")
 
+# Bot run karein
 app.run()
