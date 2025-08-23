@@ -1,29 +1,19 @@
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-import asyncio
-import os
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 BOT_TOKEN = "8350094964:AAGuq7wGITTob4ASpHj6dxDmVIxppqNlhBY"
+USERBOT_CHAT_ID = "7270006608"  # Userbot ka Telegram ID ya username
 
 async def escrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if os.path.exists("escrow_link.txt"):
-        os.remove("escrow_link.txt")
+    # Forward message to userbot
+    await context.bot.forward_message(
+        chat_id=USERBOT_CHAT_ID,
+        from_chat_id=update.message.chat_id,
+        message_id=update.message.message_id
+    )
+    await update.message.reply_text("Processing your escrow request...")
 
-    with open("escrow_request.txt", "w") as f:
-        f.write("CREATE_ESCROW")
-
-    await update.message.reply_text("⏳ Escrow group create ho raha hai...")
-
-    for _ in range(20):
-        await asyncio.sleep(1)
-        if os.path.exists("escrow_link.txt"):
-            with open("escrow_link.txt", "r") as f:
-                link = f.read().strip()
-            await update.message.reply_text(f"✅ Escrow group ready!\n👉 {link}")
-            return
-    
-    await update.message.reply_text("❌ Error: Escrow group banane me problem aayi.")
-
-app = Application.builder().token(BOT_TOKEN).build()
-app.add_handler(CommandHandler("escrow", escrow))
+app = ApplicationBuilder().token(BOT_TOKEN).build()
+app.add_handler(CommandHandler("Escrow", escrow))
+print("Bot running...")
 app.run_polling()
