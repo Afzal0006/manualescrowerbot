@@ -81,20 +81,27 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Detect when bot is added to a group
 async def added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat = update.chat_member.chat
-    new_status = update.chat_member.new_chat_member.status
-    old_status = update.chat_member.old_chat_member.status
+    chat_member = update.chat_member
+    bot_id = (await context.bot.get_me()).id
 
-    # If bot was added to a group (member status changed to 'member' or 'administrator')
-    if new_status in ["member", "administrator"] and old_status in ["left", "kicked"]:
-        await context.bot.send_message(chat_id=chat.id, text=GROUP_WELCOME)
+    # Check if the bot itself was added
+    if chat_member.new_chat_member.user.id == bot_id:
+        new_status = chat_member.new_chat_member.status
+        old_status = chat_member.old_chat_member.status
+
+        # Bot was added to the group
+        if new_status in ["member", "administrator"] and old_status in ["left", "kicked"]:
+            try:
+                await context.bot.send_message(chat_id=chat_member.chat.id, text=GROUP_WELCOME)
+            except:
+                print("Cannot send message to the group. Check permissions.")
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_callback))
-    app.add_handler(ChatMemberHandler(added_to_group, ChatMemberHandler.MY_CHAT_MEMBER))
+    app.add_handler(ChatMemberHandler(added_to_group, ChatMemberHandler.CHAT_MEMBER))
 
     print("Bot is running...")
     app.run_polling()
