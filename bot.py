@@ -17,7 +17,7 @@ Avoid scams, your funds are safeguarded throughout your deals. If you run into a
 
 ⚠️ IMPORTANT - Make sure coin is same of Buyer and Seller else you may lose your coin.
 
-💡 Tap "Command List" button below to see available commands.
+💡 Tap buttons below to see available commands or contact info.
 """
 
 COMMAND_LIST = """
@@ -25,13 +25,24 @@ COMMAND_LIST = """
 
 /seller {crypto address} - Set seller crypto address
 /buyer {crypto address} - Set buyer crypto address
-/dd - to get the form
+/dispute - Start a dispute
+/escrow - Start a new escrow
+/menu - Show bot menu
+"""
+
+CONTACT_INFO = """
+☎️ CONTACT ARBITRATOR
+
+💬 Type /dispute
+
+💡 In case you're not getting a response, you can reach out to @golgibody
 """
 
 # Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = [
-        [InlineKeyboardButton("Command List", callback_data="show_commands")]
+        [InlineKeyboardButton("Command List", callback_data="show_commands")],
+        [InlineKeyboardButton("☎️ CONTACT", callback_data="show_contact")]
     ]
     keyboard = InlineKeyboardMarkup(buttons)
     await update.message.reply_text(WELCOME_MESSAGE, reply_markup=keyboard)
@@ -49,10 +60,19 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = InlineKeyboardMarkup(buttons)
         await query.message.edit_text(COMMAND_LIST, reply_markup=keyboard)
 
-    elif query.data == "show_start":
-        # Go back to start message with Command List button
+    elif query.data == "show_contact":
+        # Show contact info with Back button
         buttons = [
-            [InlineKeyboardButton("Command List", callback_data="show_commands")]
+            [InlineKeyboardButton("Back", callback_data="show_start")]
+        ]
+        keyboard = InlineKeyboardMarkup(buttons)
+        await query.message.edit_text(CONTACT_INFO, reply_markup=keyboard)
+
+    elif query.data == "show_start":
+        # Go back to start message with main buttons
+        buttons = [
+            [InlineKeyboardButton("Command List", callback_data="show_commands")],
+            [InlineKeyboardButton("☎️ CONTACT", callback_data="show_contact")]
         ]
         keyboard = InlineKeyboardMarkup(buttons)
         await query.message.edit_text(WELCOME_MESSAGE, reply_markup=keyboard)
