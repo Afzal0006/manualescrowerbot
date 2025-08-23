@@ -1,20 +1,28 @@
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from pyrogram import Client, filters
+from pyrogram.types import Message
 
-BOT_TOKEN = "8350094964:AAGuq7wGITTob4ASpHj6dxDmVIxppqNlhBY"
-USERBOT_ID = 7270006608   # 👈 apna userbot ka ID yaha daalna
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
 
-async def escrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # user ka command delete
-    await update.message.delete()
+app = Client("demoescrowerbot", bot_token=BOT_TOKEN)
 
-    # userbot ko /escrow bhejna
-    await context.bot.send_message(chat_id=USERBOT_ID, text="/escrow")
+@app.on_message(filters.command("start"))
+async def start_message(client: Client, message: Message):
+    text = """
+💫 @DemoescrowerBot 💫
+Your Trustworthy Telegram Escrow Service
 
-    # user ko temporary msg
-    await update.effective_chat.send_message("⏳ Escrow group bana raha hu...")
+Welcome to @demoescrowerbot This bot provides a reliable escrow service for your transactions on Telegram.
+Avoid scams, your funds are safeguarded throughout your deals. If you run into any issues, simply type /dispute and an arbitrator will join the group chat within 24 hours.
 
-app = ApplicationBuilder().token(BOT_TOKEN).build()
-app.add_handler(CommandHandler("escrow", escrow))
+🎟 ESCROW FEE:
+1.0% Flat
 
-app.run_polling()
+🌐 (UPDATES){Channel link}
+
+💬 Proceed with /escrow (to start with a new escrow)
+
+⚠️ IMPORTANT - Make sure coin is same of Buyer and Seller else you may lose your coin.
+"""
+    await message.reply_text(text)
+
+app.run()
