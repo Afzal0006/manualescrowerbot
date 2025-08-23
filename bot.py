@@ -1,51 +1,41 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, ChatMemberHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
 BOT_TOKEN = "8051082366:AAECqW7-a_x135g2iDpUG7-1_eYowURM7Bw"
+
+# Escrow fee
+FEE_PERCENT = 1.0  # 1% flat fee
 
 # Messages
 WELCOME_MESSAGE = """
 💫 @Easy_Escrow_Bot 💫
 Your Trustworthy Telegram Escrow Service
 
-Welcome to @Easy_Escrow_Bot. This bot provides a reliable escrow service for your transactions on Telegram.
-Avoid scams, your funds are safeguarded throughout your deals. If you run into any issues, simply type /dispute and an arbitrator will join the group chat within 24 hours.
-
-🎟 ESCROW FEE:
-1.0% Flat
-
-💬 Proceed with /escrow (to start with a new escrow)
-
-⚠️ IMPORTANT - Make sure coin is same of Buyer and Seller else you may lose your coin.
-
-💡 Tap buttons below to see available commands or contact info.
+💬 Use /escrow to start a new automatic escrow.
+⚠️ Make sure coin is same for Buyer and Seller.
 """
 
 COMMAND_LIST = """
 💻 Available Commands:
 
-/seller {crypto address} - Set seller crypto address
-/buyer {crypto address} - Set buyer crypto address
-/dispute - Start a dispute
 /escrow - Start a new escrow
+/buyer {deal_id} {crypto_address} - Set buyer address
+/seller {deal_id} {crypto_address} - Set seller address
+/release {deal_id} - Complete escrow and release funds
+/dispute {deal_id} - Start a dispute
+/gdeal {deal_id} - View deal status
 /menu - Show bot menu
 """
 
 CONTACT_INFO = """
 ☎️ CONTACT ARBITRATOR
 
-💬 Type /dispute
-
-💡 In case you're not getting a response, you can reach out to @golgibody
+💬 Type /dispute to start a dispute.
+💡 Contact @golgibody if no response.
 """
 
-GROUP_WELCOME = """
-📍 Hey there traders! Welcome to our escrow service.
-⚠️ IMPORTANT - Make sure coin and network is same of Buyer and Seller else you may lose your coin.
-⚠️ IMPORTANT - Make sure the /buyer address and /seller address are of same chain else you may lose your coin.
-
-✅ Please start with /dd command and if you have any doubts please use /start command.
-"""
+# In-memory storage for deals
+active_deals = {}
 
 # Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -56,56 +46,124 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup(buttons)
     await update.message.reply_text(WELCOME_MESSAGE, reply_markup=keyboard)
 
+# Menu command
+async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await start(update, context)
+
 # Button callback
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
     if query.data == "show_commands":
         buttons = [[InlineKeyboardButton("Back", callback_data="show_start")]]
         keyboard = InlineKeyboardMarkup(buttons)
         await query.message.edit_text(COMMAND_LIST, reply_markup=keyboard)
-
     elif query.data == "show_contact":
         buttons = [[InlineKeyboardButton("Back", callback_data="show_start")]]
         keyboard = InlineKeyboardMarkup(buttons)
         await query.message.edit_text(CONTACT_INFO, reply_markup=keyboard)
-
     elif query.data == "show_start":
-        buttons = [
-            [InlineKeyboardButton("Command List", callback_data="show_commands")],
-            [InlineKeyboardButton("☎️ CONTACT", callback_data="show_contact")]
-        ]
-        keyboard = InlineKeyboardMarkup(buttons)
-        await query.message.edit_text(WELCOME_MESSAGE, reply_markup=keyboard)
+        await start(update, context)
 
-# Detect when bot is added to a group
-async def added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_member = update.chat_member
-    bot_id = (await context.bot.get_me()).id
+# /escrow command
+async def escrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    deal_id = str(len(active_deals) + 1)
+    active_deals[deal_id] = {"buyer": None, "seller": None, "amount": None, "status": "pending"}
+    await update.message.reply_text(
+        f"🎟 New Escrow Created!\nDeal ID: {deal_id}\n\nUse /buyer {{deal_id}} {{address}} and /seller {{deal_id}} {{address}} to set crypto addresses.\nUse /release {{deal_id}} to complete escrow."
+    )
 
-    # Only handle if it's the bot being added
-    if chat_member.new_chat_member.user.id == bot_id:
-        new_status = chat_member.new_chat_member.status
-        old_status = chat_member.old_chat_member.status
+# /buyer command
+async def set_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) != 2:
+        await update.message.reply_text("Usage: /buyer {deal_id} {crypto_address}")
+        return
+    deal_id, address = args
+    if deal_id not in active_deals:
+        await update.message.reply_text("Invalid Deal ID!")
+        return
+    active_deals[deal_id]["buyer"] = address
+    await update.message.reply_text(f"✅ Buyer address for deal {deal_id} set to: {address}")
 
-        # Bot was added to group
-        if new_status in ["member", "administrator"] and old_status in ["left", "kicked"]:
-            try:
-                await context.bot.send_message(chat_id=chat_member.chat.id, text=GROUP_WELCOME)
-                print(f"Welcome message sent to group: {chat_member.chat.title}")
-            except Exception as e:
-                print(f"Cannot send message to group '{chat_member.chat.title}': {e}")
+# /seller command
+async def set_seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) != 2:
+        await update.message.reply_text("Usage: /seller {deal_id} {crypto_address}")
+        return
+    deal_id, address = args
+    if deal_id not in active_deals:
+        await update.message.reply_text("Invalid Deal ID!")
+        return
+    active_deals[deal_id]["seller"] = address
+    await update.message.reply_text(f"✅ Seller address for deal {deal_id} set to: {address}")
+
+# /release command
+async def release(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) != 1:
+        await update.message.reply_text("Usage: /release {deal_id}")
+        return
+    deal_id = args[0]
+    if deal_id not in active_deals:
+        await update.message.reply_text("Invalid Deal ID!")
+        return
+    deal = active_deals[deal_id]
+    if not deal["buyer"] or not deal["seller"]:
+        await update.message.reply_text("Set both buyer and seller addresses before releasing.")
+        return
+
+    # Simulate escrow completion and fee
+    amount = 100  # placeholder amount
+    fee = (FEE_PERCENT / 100) * amount
+    net_amount = amount - fee
+
+    deal["status"] = "completed"
+    await update.message.reply_text(
+        f"✅ Escrow Completed!\nDeal ID: {deal_id}\nBuyer: {deal['buyer']}\nSeller: {deal['seller']}\nAmount: {amount}\nFee: {fee} ({FEE_PERCENT}%)\nNet Amount: {net_amount}"
+    )
+
+# /dispute command
+async def dispute(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) != 1:
+        await update.message.reply_text("Usage: /dispute {deal_id}")
+        return
+    deal_id = args[0]
+    if deal_id not in active_deals:
+        await update.message.reply_text("Invalid Deal ID!")
+        return
+    await update.message.reply_text(f"⚠️ Dispute started for Deal {deal_id}. An arbitrator will join shortly.")
+
+# /gdeal command
+async def view_deal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if len(args) != 1:
+        await update.message.reply_text("Usage: /gdeal {deal_id}")
+        return
+    deal_id = args[0]
+    if deal_id not in active_deals:
+        await update.message.reply_text("Invalid Deal ID!")
+        return
+    deal = active_deals[deal_id]
+    await update.message.reply_text(f"Deal {deal_id}:\nBuyer: {deal['buyer']}\nSeller: {deal['seller']}\nStatus: {deal['status']}")
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     # Command handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_callback))
+    app.add_handler(CommandHandler("menu", menu))
+    app.add_handler(CommandHandler("escrow", escrow))
+    app.add_handler(CommandHandler("buyer", set_buyer))
+    app.add_handler(CommandHandler("seller", set_seller))
+    app.add_handler(CommandHandler("release", release))
+    app.add_handler(CommandHandler("dispute", dispute))
+    app.add_handler(CommandHandler("gdeal", view_deal))
 
-    # Chat member handler for bot added to groups
-    app.add_handler(ChatMemberHandler(added_to_group, ChatMemberHandler.CHAT_MEMBER))
+    # Button callback
+    app.add_handler(CallbackQueryHandler(button_callback))
 
     print("Bot is running...")
     app.run_polling()
