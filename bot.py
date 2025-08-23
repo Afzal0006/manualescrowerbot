@@ -1,8 +1,7 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-import os
 
-BOT_TOKEN = os.environ.get("8350094964:AAGuq7wGITTob4ASpHj6dxDmVIxppqNlhBY")  # Heroku environment variable
+BOT_TOKEN = "8051082366:AAECqW7-a_x135g2iDpUG7-1_eYowURM7Bw"  # Directly in code
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hlo I'm ready")
