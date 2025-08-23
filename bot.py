@@ -33,7 +33,7 @@ COMMAND_LIST = """
 
 # Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Create a button that shows commands
+    # Button to show command list
     buttons = [
         [InlineKeyboardButton("Command List", callback_data="show_commands")]
     ]
@@ -44,9 +44,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Callback for button tap
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()  # Acknowledge the button press
+    await query.answer()  # Acknowledge button press
+
     if query.data == "show_commands":
-        await query.message.reply_text(COMMAND_LIST)
+        # Replace the original start message with command list
+        buttons = []  # Optional: remove buttons or keep a back button
+        keyboard = InlineKeyboardMarkup(buttons)
+        await query.message.edit_text(COMMAND_LIST, reply_markup=keyboard)
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
