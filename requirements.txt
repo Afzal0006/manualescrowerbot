@@ -1,2 +1,1 @@
-pyrogram==2.0.31
-tgcrypto==1.2.4
+python-telegram-bot==20.5
