@@ -1,27 +1,17 @@
-from pyrogram import Client, filters
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import os
 
-# Sirf BOT_TOKEN chahiye, api_id/hash ki zarurat nahi
-BOT_TOKEN = "8350094964:AAGuq7wGITTob4ASpHj6dxDmVIxppqNlhBY"
+BOT_TOKEN = os.environ.get("8350094964:AAGuq7wGITTob4ASpHj6dxDmVIxppqNlhBY")  # Heroku environment variable
 
-# Initialize bot
-app = Client(
-    "demoescrowerbot",
-    bot_token=BOT_TOKEN
-)
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Hlo I'm ready")
 
-# /start command
-@app.on_message(filters.command("start"))
-async def start(client, message):
-    await message.reply_text(
-        "💫 @DemoescrowerBot 💫\n"
-        "Your Trustworthy Telegram Escrow Service\n\n"
-        "Welcome to @demoescrowerbot. This bot provides a reliable escrow service for your transactions on Telegram.\n"
-        "Avoid scams, your funds are safeguarded throughout your deals. If you run into any issues, type /dispute and an arbitrator will join the group chat within 24 hours.\n\n"
-        "🎟 ESCROW FEE:\n1.0% Flat\n\n"
-        "🌐 (UPDATES){Channel link}\n\n"
-        "💬 Proceed with /escrow (to start with a new escrow)\n\n"
-        "⚠️ IMPORTANT - Make sure coin is same of Buyer and Seller else you may lose your coin."
-    )
-
-# Run bot
-app.run()
+if __name__ == "__main__":
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    
+    start_handler = CommandHandler("start", start)
+    app.add_handler(start_handler)
+    
+    print("Bot is running...")
+    app.run_polling()
