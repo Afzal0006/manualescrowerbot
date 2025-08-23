@@ -1,4 +1,4 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatMember
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, ChatMemberHandler
 
 BOT_TOKEN = "8051082366:AAECqW7-a_x135g2iDpUG7-1_eYowURM7Bw"
@@ -84,23 +84,27 @@ async def added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_member = update.chat_member
     bot_id = (await context.bot.get_me()).id
 
-    # Check if the bot itself was added
+    # Only handle if it's the bot being added
     if chat_member.new_chat_member.user.id == bot_id:
         new_status = chat_member.new_chat_member.status
         old_status = chat_member.old_chat_member.status
 
-        # Bot was added to the group
+        # Bot was added to group
         if new_status in ["member", "administrator"] and old_status in ["left", "kicked"]:
             try:
                 await context.bot.send_message(chat_id=chat_member.chat.id, text=GROUP_WELCOME)
-            except:
-                print("Cannot send message to the group. Check permissions.")
+                print(f"Welcome message sent to group: {chat_member.chat.title}")
+            except Exception as e:
+                print(f"Cannot send message to group '{chat_member.chat.title}': {e}")
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    # Command handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_callback))
+
+    # Chat member handler for bot added to groups
     app.add_handler(ChatMemberHandler(added_to_group, ChatMemberHandler.CHAT_MEMBER))
 
     print("Bot is running...")
