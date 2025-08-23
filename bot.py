@@ -25,9 +25,7 @@ COMMAND_LIST = """
 
 /seller {crypto address} - Set seller crypto address
 /buyer {crypto address} - Set buyer crypto address
-/dispute - Start a dispute
-/escrow - Start a new escrow
-/menu - Show bot menu
+/dd - to get the form
 """
 
 # Start command
