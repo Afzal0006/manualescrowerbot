@@ -1,26 +1,20 @@
-# bot.py
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-import asyncio
-from userbot import userbot, create_escrow_group
 
 BOT_TOKEN = "8350094964:AAGuq7wGITTob4ASpHj6dxDmVIxppqNlhBY"
+USERBOT_ID = 7270006608   # 👈 apna userbot ka ID yaha daalna
 
 async def escrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        await update.message.reply_text("⏳ Creating your escrow group...")
+    # user ka command delete
+    await update.message.delete()
 
-        # Userbot start
-        await userbot.start()
-        link = await create_escrow_group()
-        await userbot.stop()
+    # userbot ko /escrow bhejna
+    await context.bot.send_message(chat_id=USERBOT_ID, text="/escrow")
 
-        await update.message.reply_text(f"✅ Escrow group created!\nInvite link: {link}")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error: {e}")
+    # user ko temporary msg
+    await update.effective_chat.send_message("⏳ Escrow group bana raha hu...")
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(CommandHandler("escrow", escrow))
 
-print("Bot is running...")
 app.run_polling()
