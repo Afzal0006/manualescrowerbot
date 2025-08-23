@@ -20,7 +20,6 @@ Avoid scams, your funds are safeguarded throughout your deals. If you run into a
 💡 Tap "Command List" button below to see available commands.
 """
 
-# Command list text
 COMMAND_LIST = """
 💻 Available Commands:
 
@@ -33,24 +32,32 @@ COMMAND_LIST = """
 
 # Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Button to show command list
     buttons = [
         [InlineKeyboardButton("Command List", callback_data="show_commands")]
     ]
     keyboard = InlineKeyboardMarkup(buttons)
-    
     await update.message.reply_text(WELCOME_MESSAGE, reply_markup=keyboard)
 
 # Callback for button tap
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()  # Acknowledge button press
+    await query.answer()
 
     if query.data == "show_commands":
-        # Replace the original start message with command list
-        buttons = []  # Optional: remove buttons or keep a back button
+        # Show command list with Back button
+        buttons = [
+            [InlineKeyboardButton("Back", callback_data="show_start")]
+        ]
         keyboard = InlineKeyboardMarkup(buttons)
         await query.message.edit_text(COMMAND_LIST, reply_markup=keyboard)
+
+    elif query.data == "show_start":
+        # Go back to start message with Command List button
+        buttons = [
+            [InlineKeyboardButton("Command List", callback_data="show_commands")]
+        ]
+        keyboard = InlineKeyboardMarkup(buttons)
+        await query.message.edit_text(WELCOME_MESSAGE, reply_markup=keyboard)
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
