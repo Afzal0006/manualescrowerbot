@@ -102,17 +102,17 @@ async def monitor_loop(app):
         await asyncio.sleep(POLL_INTERVAL)
 
 # ===== MAIN =====
-def main():
+async def main():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("watch", watch_cmd))
     app.add_handler(CommandHandler("unwatch", unwatch_cmd))
 
-    # Start monitor in background
-    app.job_queue.run_once(lambda ctx: asyncio.create_task(monitor_loop(app)), when=1)
-
     print("🤖 Bot running…")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Start background monitor task
+    asyncio.create_task(monitor_loop(app))
+
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
