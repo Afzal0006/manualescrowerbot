@@ -5,7 +5,12 @@ import re
 TOKEN = "8051082366:AAECqW7-a_x135g2iDpUG7-1_eYowURM7Bw"
 
 # Deal storage
-deal = {"seller": None, "buyer": None, "msg_id": None, "chat_id": None, "token": None, "accepted": False}
+deal = {
+    "seller": None, "buyer": None,
+    "seller_user": None, "buyer_user": None,
+    "msg_id": None, "chat_id": None,
+    "token": None, "accepted": False
+}
 
 # Regex for BEP20 address validation
 bep20_pattern = re.compile(r"^0x[a-fA-F0-9]{40}$")
@@ -15,9 +20,17 @@ async def start(update: Update, context: CallbackContext):
 
 async def seller(update: Update, context: CallbackContext):
     global deal
+    user_id = update.effective_user.id
+
     if deal["seller"]:
         await update.message.reply_text("❌ Seller wallet already set!")
         return
+
+    # Prevent same person from being both seller and buyer
+    if deal["buyer_user"] == user_id:
+        await update.message.reply_text("❌ You are already registered as Buyer. You cannot be Seller too!")
+        return
+
     if not context.args:
         await update.message.reply_text("⚠️ Usage: /seller <bep20_address>")
         return
@@ -30,8 +43,10 @@ async def seller(update: Update, context: CallbackContext):
         return
 
     deal["seller"] = addr
+    deal["seller_user"] = user_id
+
     await update.message.reply_text(
-        f"⚡️ SELLER {update.effective_user.username} Userid: {update.effective_user.id}\n\n"
+        f"⚡️ SELLER {update.effective_user.username} Userid: {user_id}\n\n"
         f"✅ SELLER WALLET\n{addr}\n\nNow please set the buyer wallet with /buyer <address>"
     )
 
@@ -40,9 +55,17 @@ async def seller(update: Update, context: CallbackContext):
 
 async def buyer(update: Update, context: CallbackContext):
     global deal
+    user_id = update.effective_user.id
+
     if deal["buyer"]:
         await update.message.reply_text("❌ Buyer wallet already set!")
         return
+
+    # Prevent same person from being both buyer and seller
+    if deal["seller_user"] == user_id:
+        await update.message.reply_text("❌ You are already registered as Seller. You cannot be Buyer too!")
+        return
+
     if not context.args:
         await update.message.reply_text("⚠️ Usage: /buyer <bep20_address>")
         return
@@ -55,8 +78,10 @@ async def buyer(update: Update, context: CallbackContext):
         return
 
     deal["buyer"] = addr
+    deal["buyer_user"] = user_id
+
     await update.message.reply_text(
-        f"⚡️ BUYER {update.effective_user.username} Userid: {update.effective_user.id}\n\n"
+        f"⚡️ BUYER {update.effective_user.username} Userid: {user_id}\n\n"
         f"✅ BUYER WALLET\n{addr}\n\nNow please set the seller wallet with /seller <address>"
     )
 
@@ -92,19 +117,26 @@ async def button_handler(update: Update, context: CallbackContext):
     # Accept/Reject
     elif query.data in ["accept", "reject"]:
         user_id = query.from_user.id
-        if user_id == update.effective_chat.get_member(user_id).user.id:
-            # Prevent same user accept/reject both sides
-            pass
+
+        # Ensure only buyer or seller can click
+        if user_id not in [deal["buyer_user"], deal["seller_user"]]:
+            await query.answer("⚠️ Only Buyer or Seller can respond!", show_alert=True)
+            return
 
         if query.data == "reject":
             await query.edit_message_text("❌ Deal Rejected!")
-            deal.update({"seller": None, "buyer": None, "msg_id": None, "chat_id": None, "token": None, "accepted": False})
+            reset_deal()
             return
 
         if not deal["accepted"]:
-            deal["accepted"] = True
+            deal["accepted"] = user_id
             await query.edit_message_text("✅ One side accepted. Waiting for the opponent...")
         else:
+            # Ensure second accept comes from the other user
+            if deal["accepted"] == user_id:
+                await query.answer("⚠️ You already accepted! Waiting for the opponent.", show_alert=True)
+                return
+
             escrow = "https://t.me/EscrowWalletDemo"
             await query.edit_message_text(
                 f"✅ DEAL CREATED\n\n"
@@ -113,7 +145,16 @@ async def button_handler(update: Update, context: CallbackContext):
                 f"⚡️ ESCROW WALLET\n<a href='{escrow}'>Click Here</a>",
                 parse_mode="HTML"
             )
-            deal.update({"seller": None, "buyer": None, "msg_id": None, "chat_id": None, "token": None, "accepted": False})
+            reset_deal()
+
+def reset_deal():
+    global deal
+    deal = {
+        "seller": None, "buyer": None,
+        "seller_user": None, "buyer_user": None,
+        "msg_id": None, "chat_id": None,
+        "token": None, "accepted": False
+    }
 
 def main():
     app = Application.builder().token(TOKEN).build()
