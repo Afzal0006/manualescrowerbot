@@ -1,5 +1,4 @@
 import requests
-import time
 import asyncio
 from telegram import Bot
 
@@ -20,17 +19,25 @@ async def monitor_wallet():
             url = f"https://api.bscscan.com/api?module=account&action=txlist&address={WALLET_ADDRESS}&sort=desc&apikey={API_KEY}"
             r = requests.get(url, timeout=15).json()
             txns = r.get("result", [])
+
+            # ✅ Only proceed if txns is a list
+            if not isinstance(txns, list):
+                print("⚠️ BscScan API returned error or string:", txns)
+                await asyncio.sleep(POLL_INTERVAL)
+                continue
+
             if txns:
                 latest = txns[0]
-                if latest["hash"] != last_txn and latest["to"].lower() == WALLET_ADDRESS.lower():
-                    last_txn = latest["hash"]
-                    value = int(latest["value"]) / 1e18
-                    from_addr = latest["from"]
-                    tx_hash = latest["hash"]
+                if latest.get("hash") != last_txn and latest.get("to", "").lower() == WALLET_ADDRESS.lower():
+                    last_txn = latest.get("hash")
+                    value = int(latest.get("value", 0)) / 1e18
+                    from_addr = latest.get("from")
+                    tx_hash = latest.get("hash")
                     msg = f"✅ New Payment Received!\nAmount: {value:.6f} BNB\nFrom: {from_addr}\nTo: {WALLET_ADDRESS}\n🔗 https://bscscan.com/tx/{tx_hash}"
                     bot.send_message(chat_id=CHAT_ID, text=msg)
         except Exception as e:
             print("Error:", e)
+
         await asyncio.sleep(POLL_INTERVAL)
 
 def main():
