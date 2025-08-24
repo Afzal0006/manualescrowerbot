@@ -4,27 +4,24 @@ import re
 import random
 
 BOT_TOKEN = "8051082366:AAECqW7-a_x135g2iDpUG7-1_eYowURM7Bw"
-
 BEP20_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
-# In-memory storage for the current deal
+# Deal storage
 deal_data = {
     "seller_address": None,
     "seller_user_id": None,
     "buyer_address": None,
     "buyer_user_id": None,
-    "token_selected": False,
-    "seller_accepted": False,
-    "buyer_accepted": False,
+    "token_selected_by": None,
+    "opponent_accepted": False,
     "active": False
 }
 
 # /seller command
 async def set_seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global deal_data
     user = update.message.from_user
     if deal_data["buyer_user_id"] == user.id:
-        await update.message.reply_text("❌ You are already set as buyer. Same ID cannot be seller.")
+        await update.message.reply_text("❌ Same ID cannot be both buyer and seller.")
         return
     if len(context.args) != 1:
         await update.message.reply_text("Usage: /seller {BEP-20 address}")
@@ -37,18 +34,13 @@ async def set_seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
     deal_data["seller_address"] = address
     deal_data["seller_user_id"] = user.id
     deal_data["active"] = True
-    await update.message.reply_text(
-        f"⚡️ SELLER {user.username if user.username else 'No username'} Userid: {user.id}\n\n"
-        f"✅ SELLER WALLET\n{address}\n\n"
-        "Now please set the buyer wallet with /buyer {address}"
-    )
+    await update.message.reply_text(f"⚡️ SELLER WALLET\n{address}\nBuyer can now set wallet with /buyer {address}")
 
 # /buyer command
 async def set_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global deal_data
     user = update.message.from_user
     if deal_data["seller_user_id"] == user.id:
-        await update.message.reply_text("❌ You are already set as seller. Same ID cannot be buyer.")
+        await update.message.reply_text("❌ Same ID cannot be both seller and buyer.")
         return
     if len(context.args) != 1:
         await update.message.reply_text("Usage: /buyer {BEP-20 address}")
@@ -63,23 +55,20 @@ async def set_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     deal_data["buyer_address"] = address
     deal_data["buyer_user_id"] = user.id
+    await update.message.reply_text(f"⚡️ BUYER WALLET\n{address}\nUse /token to select token and continue.")
 
-    # Send token selection with Accept / Reject
-    buttons = [
-        [InlineKeyboardButton("Accept", callback_data=f"accept_{user.id}"),
-         InlineKeyboardButton("Reject", callback_data=f"reject_{user.id}")]
-    ]
+# /token command
+async def token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not deal_data["buyer_address"] or not deal_data["seller_address"]:
+        await update.message.reply_text("❌ Both addresses must be set first.")
+        return
+
+    buttons = [[InlineKeyboardButton("BEP-20", callback_data=f"bep20_{update.effective_user.id}")]]
     keyboard = InlineKeyboardMarkup(buttons)
-    await update.message.reply_text(
-        f"⚡️ BUYER {user.username if user.username else 'No username'} Userid: {user.id}\n\n"
-        f"✅ BUYER WALLET\n{address}\n\n"
-        "Please confirm the deal by clicking Accept or Reject for USDT BEP-20:",
-        reply_markup=keyboard
-    )
+    await update.message.reply_text("Select token:", reply_markup=keyboard)
 
-# Callback for Accept / Reject buttons
+# Callback for buttons
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global deal_data
     query = update.callback_query
     await query.answer()
     data = query.data
@@ -89,54 +78,50 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("❌ No active deal.")
         return
 
-    # Accept button
-    if data.startswith("accept_"):
-        if str(user_id) != data.split("_")[1]:
-            await query.message.reply_text("❌ This button is not for you.")
+    # Check if button is for this user
+    if data.startswith("bep20_"):
+        target_id = int(data.split("_")[1])
+        if user_id != target_id:
+            await query.message.reply_text("❌ Not for you!")
             return
-        if user_id == deal_data["seller_user_id"]:
-            deal_data["seller_accepted"] = True
-        elif user_id == deal_data["buyer_user_id"]:
-            deal_data["buyer_accepted"] = True
-
-    # Reject button
-    if data.startswith("reject_"):
-        if str(user_id) != data.split("_")[1]:
-            await query.message.reply_text("❌ This button is not for you.")
-            return
-        await query.message.reply_text("❌ Deal rejected. Cancelling...")
-        deal_data.update({
-            "seller_address": None, "seller_user_id": None,
-            "buyer_address": None, "buyer_user_id": None,
-            "token_selected": False, "seller_accepted": False,
-            "buyer_accepted": False, "active": False
-        })
+        deal_data["token_selected_by"] = user_id
+        # Send Accept/Reject to opponent
+        opponent_id = deal_data["seller_user_id"] if user_id == deal_data["buyer_user_id"] else deal_data["buyer_user_id"]
+        buttons = [[InlineKeyboardButton("Accept", callback_data=f"accept_{opponent_id}"),
+                    InlineKeyboardButton("Reject", callback_data=f"reject_{opponent_id}")]]
+        keyboard = InlineKeyboardMarkup(buttons)
+        await query.message.reply_text("Token selected. Waiting for opponent to Accept/Reject:", reply_markup=keyboard)
         return
 
-    # If both accepted, finalize deal
-    if deal_data["seller_accepted"] and deal_data["buyer_accepted"]:
+    # Handle Accept / Reject
+    if data.startswith("accept_") or data.startswith("reject_"):
+        target_id = int(data.split("_")[1])
+        if user_id != target_id:
+            await query.message.reply_text("❌ Not for you!")
+            return
+        if data.startswith("reject_"):
+            await query.message.reply_text("❌ Deal rejected. Cancelling...")
+            for k in deal_data.keys():
+                deal_data[k] = None
+            return
+        # Accept -> finalize deal
         escrow_address = "0x" + "".join(random.choices("abcdef0123456789", k=40))
         await query.message.reply_text(
-            f"✅ Deal Created!\n\n"
-            f"Seller address: {deal_data['seller_address']}\n"
-            f"Buyer address: {deal_data['buyer_address']}\n"
-            f"Escrower address: [Click Here](https://bscscan.com/address/{escrow_address})",
+            f"✅ DEAL CREATED\n\n"
+            f"⚡️ SELLER WALLET\n{deal_data['seller_address']}\n\n"
+            f"⚡️ BUYER WALLET\n{deal_data['buyer_address']}\n\n"
+            f"⚡️ ESCROW WALLET\n[Click Here](https://bscscan.com/address/{escrow_address})",
             parse_mode="Markdown"
         )
         # Reset deal
-        deal_data.update({
-            "seller_address": None, "seller_user_id": None,
-            "buyer_address": None, "buyer_user_id": None,
-            "token_selected": False, "seller_accepted": False,
-            "buyer_accepted": False, "active": False
-        })
+        for k in deal_data.keys():
+            deal_data[k] = None
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-
     app.add_handler(CommandHandler("seller", set_seller))
     app.add_handler(CommandHandler("buyer", set_buyer))
+    app.add_handler(CommandHandler("token", token_command))
     app.add_handler(CallbackQueryHandler(button_callback))
-
-    print("Bot is running...")
+    print("Bot running...")
     app.run_polling()
