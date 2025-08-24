@@ -1,48 +1,50 @@
 import requests
-import asyncio
+import time
 from telegram import Bot
 
 # ===== CONFIG =====
-BOT_TOKEN = "8311824260:AAGXb5ZmpaROdX4qdLLyLZYF2QixX_KmKgk"
-CHAT_ID = -1002629351743  # Tumhara group chat ID
-WALLET_ADDRESS = "0x9a1f5a7f4b78f4A143dBe8271D9393bd60e97365"
-API_KEY = "EF7ZUA5EZKWDTEJSH525RNRCSDQQ1TVS6P"
-POLL_INTERVAL = 15  # seconds
+BSC_API_KEY = "EF7ZUA5EZKWDTEJSH525RNRCSDQQ1TVS6P"  # Aapki BscScan API key
+WALLET_ADDRESS = "0xfcfdcad750dcb37211ec494a0a625dba3e99b4d5"  # Aapka BEP-20 wallet address
+TOKEN_CONTRACT = ""  # Agar specific token track karna ho to contract address yahan, warna leave blank
+TELEGRAM_BOT_TOKEN = "8311824260:AAGXb5ZmpaROdX4qdLLyLZYF2QixX_KmKgk"  # Telegram bot token
+TELEGRAM_CHAT_ID = -1002776165745  # Telegram group chat ID
+CHECK_INTERVAL = 15  # seconds
 
-bot = Bot(token=BOT_TOKEN)
-last_txn = None
+# Initialize Telegram bot
+bot = Bot(token=TELEGRAM_BOT_TOKEN)
 
-async def monitor_wallet():
-    global last_txn
-    while True:
-        try:
-            url = f"https://api.bscscan.com/api?module=account&action=txlist&address={WALLET_ADDRESS}&sort=desc&apikey={API_KEY}"
-            r = requests.get(url, timeout=15).json()
-            txns = r.get("result", [])
+# Store already notified transactions
+notified_txs = set()
 
-            # ✅ Only proceed if txns is a list
-            if not isinstance(txns, list):
-                print("⚠️ BscScan API returned error or string:", txns)
-                await asyncio.sleep(POLL_INTERVAL)
-                continue
+def get_bep20_transactions(wallet):
+    url = f"https://api.bscscan.com/api?module=account&action=tokentx&address={wallet}&startblock=0&endblock=99999999&sort=desc&apikey={BSC_API_KEY}"
+    response = requests.get(url).json()
+    if response["status"] == "1":
+        return response["result"]
+    return []
 
-            if txns:
-                latest = txns[0]
-                if latest.get("hash") != last_txn and latest.get("to", "").lower() == WALLET_ADDRESS.lower():
-                    last_txn = latest.get("hash")
-                    value = int(latest.get("value", 0)) / 1e18
-                    from_addr = latest.get("from")
-                    tx_hash = latest.get("hash")
-                    msg = f"✅ New Payment Received!\nAmount: {value:.6f} BNB\nFrom: {from_addr}\nTo: {WALLET_ADDRESS}\n🔗 https://bscscan.com/tx/{tx_hash}"
-                    bot.send_message(chat_id=CHAT_ID, text=msg)
-        except Exception as e:
-            print("Error:", e)
-
-        await asyncio.sleep(POLL_INTERVAL)
-
-def main():
-    print("🤖 Bot started… monitoring wallet")
-    asyncio.run(monitor_wallet())
-
-if __name__ == "__main__":
-    main()
+while True:
+    try:
+        transactions = get_bep20_transactions(WALLET_ADDRESS)
+        if transactions:
+            for tx in transactions:
+                tx_hash = tx["hash"]
+                # Optional: filter by token contract
+                if TOKEN_CONTRACT and tx["contractAddress"].lower() != TOKEN_CONTRACT.lower():
+                    continue
+                if tx_hash not in notified_txs:
+                    notified_txs.add(tx_hash)
+                    amount = int(tx["value"]) / (10 ** int(tx["tokenDecimal"]))
+                    message = (
+                        f"💰 New Transaction Detected!\n"
+                        f"From: {tx['from']}\n"
+                        f"To: {tx['to']}\n"
+                        f"Token: {tx['tokenName']} ({tx['tokenSymbol']})\n"
+                        f"Amount: {amount}\n"
+                        f"Tx Hash: https://bscscan.com/tx/{tx_hash}"
+                    )
+                    bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+        time.sleep(CHECK_INTERVAL)
+    except Exception as e:
+        print("Error:", e)
+        time.sleep(CHECK_INTERVAL)
