@@ -8,12 +8,7 @@ FEE_PERCENT = 1.0  # 1% flat fee
 
 # Messages
 WELCOME_MESSAGE = """
-💫 @Easy_Escrow_Bot 💫
-Your Trustworthy Telegram Escrow Service
-
-💬 Use /escrow to start a new automatic escrow.
-⚠️ Make sure coin is same for Buyer and Seller.
-"""
+I'm normal bot add me grup for deal"""
 
 COMMAND_LIST = """
 💻 Available Commands:
