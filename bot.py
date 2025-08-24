@@ -23,6 +23,8 @@ def get_bep20_transactions(wallet):
         return response["result"]
     return []
 
+print("✅ Bot is running...")   # <-- Ye message startup pe print hoga
+
 while True:
     try:
         transactions = get_bep20_transactions(WALLET_ADDRESS)
