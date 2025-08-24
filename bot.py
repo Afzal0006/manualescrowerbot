@@ -1,135 +1,169 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-import random
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 
-TOKEN = "8350094964:AAHP2RmJ6aCzqthFR9eT6j9-JHAlDOpU6G8"  # tumhara bot token
+# Your Bot Token
+TOKEN = "8051082366:AAECqW7-a_x135g2iDpUG7-1_eYowURM7Bw"
 
-# Memory
+# Store deal data
 deals = {}
 
-ESCROW_WALLETS = [
-    "https://t.me/EscrowWallet1",
-    "https://t.me/EscrowWallet2",
-    "https://t.me/EscrowWallet3"
-]
+# Random escrow wallet (static for now)
+ESCROW_WALLET = "https://t.me/EscrowWallet1"
+
+
+# Start command
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "📍 Hey there traders! Welcome to our escrow service.\n\n"
+        "⚠️ IMPORTANT - Make sure coin and network is same for Buyer and Seller.\n"
+        "⚠️ IMPORTANT - Make sure buyer and seller address are of same chain.\n\n"
+        "✅ Please start with /dd to tell deal details."
+    )
+
+
+# /dd command → Ask deal details
+async def dd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Hello there,\nKindly tell deal details i.e.\n\n"
+        "Quantity -\nRate -\nConditions (if any) -\n\n"
+        "Once filled, set the seller or buyer wallet with /seller or /buyer"
+    )
+
 
 # /seller command
 async def seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    username = update.effective_user.username
     chat_id = update.effective_chat.id
-    user = update.effective_user
-    address = " ".join(context.args)
 
-    if not address:
-        await update.message.reply_text("❌ Please provide seller address.")
+    if len(context.args) != 1:
+        await update.message.reply_text("❌ Usage: /seller <wallet_address>")
         return
 
-    if chat_id not in deals:
-        deals[chat_id] = {"seller": None, "buyer": None, "message_id": None}
+    wallet = context.args[0]
+    deal = deals.setdefault(chat_id, {"seller": None, "buyer": None, "token": None, "message_id": None})
 
-    if deals[chat_id]["seller"] is None:
-        deals[chat_id]["seller"] = {"id": user.id, "username": user.username, "address": address}
-        await update.message.reply_text(
-            f"⚡️ SELLER {user.username} UserID: {user.id}\n\n✅ SELLER WALLET\n{address}\n\n"
-            f"Now please set the buyer wallet with /buyer <address>"
-        )
-    else:
-        await update.message.reply_text("❌ Seller wallet already set.")
+    if deal["seller"]:
+        await update.message.reply_text("❌ Seller wallet already set!")
+        return
+
+    if deal["buyer"] == wallet:
+        await update.message.reply_text("❌ Buyer and Seller address cannot be same!")
+        return
+
+    deal["seller"] = {"id": user_id, "username": username, "wallet": wallet}
+
+    text = f"⚡️ SELLER @{username} Userid: {user_id}\n\n✅ SELLER WALLET\n{wallet}\n\nNow please set the buyer wallet with /buyer <address>"
+    await update.message.reply_text(text)
+
+    if deal["buyer"]:
+        await show_token_option(update, context, deal)
+
 
 # /buyer command
 async def buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    username = update.effective_user.username
     chat_id = update.effective_chat.id
-    user = update.effective_user
-    address = " ".join(context.args)
 
-    if not address:
-        await update.message.reply_text("❌ Please provide buyer address.")
+    if len(context.args) != 1:
+        await update.message.reply_text("❌ Usage: /buyer <wallet_address>")
         return
 
-    if chat_id not in deals:
-        deals[chat_id] = {"seller": None, "buyer": None, "message_id": None}
+    wallet = context.args[0]
+    deal = deals.setdefault(chat_id, {"seller": None, "buyer": None, "token": None, "message_id": None})
 
-    if deals[chat_id]["buyer"] is None:
-        if deals[chat_id].get("seller") and deals[chat_id]["seller"]["address"] == address:
-            await update.message.reply_text("❌ Buyer and Seller address is same. Use a different address.")
-            return
-
-        deals[chat_id]["buyer"] = {"id": user.id, "username": user.username, "address": address}
-        await update.message.reply_text(
-            f"⚡️ BUYER {user.username} UserID: {user.id}\n\n✅ BUYER WALLET\n{address}\n\n"
-            f"Now you can proceed with /token"
-        )
-    else:
-        await update.message.reply_text("❌ Buyer wallet already set.")
-
-# /token command
-async def token(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    deal = deals.get(chat_id)
-
-    if not deal or not deal["seller"] or not deal["buyer"]:
-        await update.message.reply_text("❌ Set both seller and buyer wallets first.")
+    if deal["buyer"]:
+        await update.message.reply_text("❌ Buyer wallet already set!")
         return
 
-    keyboard = [[InlineKeyboardButton("USDT (BEP-20)", callback_data="bep20")]]
+    if deal["seller"] == wallet:
+        await update.message.reply_text("❌ Buyer and Seller address cannot be same!")
+        return
+
+    deal["buyer"] = {"id": user_id, "username": username, "wallet": wallet}
+
+    text = f"⚡️ BUYER @{username} Userid: {user_id}\n\n✅ BUYER WALLET\n{wallet}\n\nNow please set the seller wallet with /seller <address>"
+    await update.message.reply_text(text)
+
+    if deal["seller"]:
+        await show_token_option(update, context, deal)
+
+
+# Show token selection
+async def show_token_option(update: Update, context: ContextTypes.DEFAULT_TYPE, deal):
+    chat_id = update.effective_chat.id
+    keyboard = [[InlineKeyboardButton("USDT (BEP-20)", callback_data="token_bep20")]]
     msg = await update.message.reply_text("Select token:", reply_markup=InlineKeyboardMarkup(keyboard))
-    deals[chat_id]["message_id"] = msg.message_id
+    deal["message_id"] = msg.message_id
 
-# Handle button clicks
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+# Callback for token selection & accept/reject
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     chat_id = query.message.chat_id
-    user = query.from_user
+    user_id = query.from_user.id
     deal = deals.get(chat_id)
 
     if not deal:
+        await query.answer("❌ No active deal!", show_alert=True)
         return
 
-    # Step 1: Select Token
-    if query.data == "bep20":
-        # Save who clicked first
-        deal["initiator"] = user.id
-        keyboard = [
-            [InlineKeyboardButton("✅ Accept", callback_data="accept"),
-             InlineKeyboardButton("❌ Reject", callback_data="reject")]
-        ]
-        await query.message.edit_text(
-            "Token selected. Waiting for opponent to Accept/Reject:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+    # Token selected
+    if query.data == "token_bep20":
+        # Only first click sets token
+        if not deal["token"]:
+            deal["token"] = "USDT (BEP-20)"
+            keyboard = [
+                [InlineKeyboardButton("✅ Accept", callback_data="accept"),
+                 InlineKeyboardButton("❌ Reject", callback_data="reject")]
+            ]
+            await query.edit_message_text(
+                f"Token selected: {deal['token']}\nWaiting for opponent to Accept/Reject:",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        else:
+            await query.answer("Token already selected!")
 
-    # Step 2: Accept/Reject
+    # Accept/Reject logic
     elif query.data in ["accept", "reject"]:
-        initiator = deal.get("initiator")
-        opponent = deal["buyer"]["id"] if initiator == deal["seller"]["id"] else deal["seller"]["id"]
-
-        if user.id != opponent:
-            await query.answer("❌ Not for you!", show_alert=True)
+        if user_id not in [deal["buyer"]["id"], deal["seller"]["id"]]:
+            await query.answer("❌ Not for you", show_alert=True)
             return
+
+        opponent_id = deal["buyer"]["id"] if user_id == deal["seller"]["id"] else deal["seller"]["id"]
 
         if query.data == "reject":
-            await query.message.edit_text("❌ Deal Rejected.")
+            await query.edit_message_text("❌ Deal Rejected.")
             deals.pop(chat_id, None)
-            return
+        elif query.data == "accept":
+            # Only allow if opponent already accepted
+            if deal.get("accepted") == opponent_id:
+                await query.edit_message_text(
+                    f"✅ DEAL CREATED\n\n"
+                    f"⚡️ SELLER WALLET\n{deal['seller']['wallet']}\n\n"
+                    f"⚡️ BUYER WALLET\n{deal['buyer']['wallet']}\n\n"
+                    f"⚡️ ESCROW WALLET\n{ESCROW_WALLET}"
+                )
+                deals.pop(chat_id, None)
+            else:
+                deal["accepted"] = user_id
+                await query.answer("✅ You accepted. Waiting for opponent...")
 
-        # Final Deal Created
-        escrow = random.choice(ESCROW_WALLETS)
-        await query.message.edit_text(
-            f"✅ DEAL CREATED\n\n"
-            f"⚡️ SELLER WALLET\n{deal['seller']['address']}\n\n"
-            f"⚡️ BUYER WALLET\n{deal['buyer']['address']}\n\n"
-            f"⚡️ ESCROW WALLET\n[Click Here]({escrow})",
-            disable_web_page_preview=True
-        )
-        deals.pop(chat_id, None)
 
-# Main
+# Run the bot
 def main():
     app = Application.builder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("dd", dd))
     app.add_handler(CommandHandler("seller", seller))
     app.add_handler(CommandHandler("buyer", buyer))
-    app.add_handler(CommandHandler("token", token))
-    app.add_handler(CallbackQueryHandler(button))
+    app.add_handler(CallbackQueryHandler(button_handler))
+
+    print("🤖 Bot is running ✅")   # <--- yaha print add kar diya
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
