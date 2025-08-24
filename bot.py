@@ -34,7 +34,12 @@ async def set_seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
     deal_data["seller_address"] = address
     deal_data["seller_user_id"] = user.id
     deal_data["active"] = True
-    await update.message.reply_text(f"⚡️ SELLER WALLET\n{address}\nBuyer can now set wallet with /buyer {address}")
+
+    await update.message.reply_text(f"⚡️ SELLER WALLET\n{address}")
+
+    # Check if both set
+    if deal_data["buyer_address"] and deal_data["seller_address"]:
+        await update.message.reply_text("✅ Both addresses set! Use /token to continue.")
 
 # /buyer command
 async def set_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -55,7 +60,13 @@ async def set_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     deal_data["buyer_address"] = address
     deal_data["buyer_user_id"] = user.id
-    await update.message.reply_text(f"⚡️ BUYER WALLET\n{address}\nUse /token to select token and continue.")
+    deal_data["active"] = True
+
+    await update.message.reply_text(f"⚡️ BUYER WALLET\n{address}")
+
+    # Check if both set
+    if deal_data["buyer_address"] and deal_data["seller_address"]:
+        await update.message.reply_text("✅ Both addresses set! Use /token to continue.")
 
 # /token command
 async def token_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
