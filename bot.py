@@ -20,12 +20,19 @@ deal_data = {
 # /seller command
 async def set_seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
+
+    # Prevent resetting once set
+    if deal_data["seller_address"] is not None:
+        await update.message.reply_text("❌ Seller already set, cannot change again.")
+        return
+
     if deal_data["buyer_user_id"] == user.id:
         await update.message.reply_text("❌ Same ID cannot be both buyer and seller.")
         return
     if len(context.args) != 1:
         await update.message.reply_text("Usage: /seller {BEP-20 address}")
         return
+
     address = context.args[0]
     if not BEP20_PATTERN.match(address):
         await update.message.reply_text("❌ Invalid BEP-20 address!")
@@ -44,12 +51,19 @@ async def set_seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /buyer command
 async def set_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
+
+    # Prevent resetting once set
+    if deal_data["buyer_address"] is not None:
+        await update.message.reply_text("❌ Buyer already set, cannot change again.")
+        return
+
     if deal_data["seller_user_id"] == user.id:
         await update.message.reply_text("❌ Same ID cannot be both seller and buyer.")
         return
     if len(context.args) != 1:
         await update.message.reply_text("Usage: /buyer {BEP-20 address}")
         return
+
     address = context.args[0]
     if not BEP20_PATTERN.match(address):
         await update.message.reply_text("❌ Invalid BEP-20 address!")
