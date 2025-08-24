@@ -6,7 +6,7 @@ from telegram import Bot, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # ===== CONFIG =====
-BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+BOT_TOKEN = "8311824260:AAGXb5ZmpaROdX4qdLLyLZYF2QixX_KmKgk"
 WALLET_ADDRESS = "0x9a1f5a7f4b78f4A143dBe8271D9393bd60e97365"
 API_KEY = "PXMHTYTI6Z5P6ES9M6HFIINZZN41WPKTGD"
 POLL_INTERVAL = 15  # seconds
