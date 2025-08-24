@@ -7,6 +7,9 @@ TOKEN = "8051082366:AAECqW7-a_x135g2iDpUG7-1_eYowURM7Bw"
 # BEP20 regex
 bep20_pattern = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
+# Fixed Escrow Wallet
+ESCROW_WALLET = "0xEscrowWalletExample1234567890abcdef12345678"
+
 # Global deal storage
 deal = {
     "buyer": None,
@@ -14,7 +17,8 @@ deal = {
     "seller": None,
     "seller_user": None,
     "token": None,
-    "status": "pending"
+    "status": "pending",
+    "initiator": None
 }
 
 
@@ -22,7 +26,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📍 Welcome to Escrow Bot!\n\n"
         "⚠️ IMPORTANT:\n"
-        "- Buyer and Seller must use different accounts\n"
+        "- Buyer and Seller must be different accounts\n"
         "- Only BEP20 addresses allowed\n\n"
         "✅ Use /buyer <address> and /seller <address> to start"
     )
@@ -61,7 +65,6 @@ async def buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✅ BUYER WALLET\n{addr}"
     )
 
-    # Agar dono set ho gaye to token option dikhao
     if deal["seller"]:
         await show_token_option(update, context)
 
@@ -99,7 +102,6 @@ async def seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✅ SELLER WALLET\n{addr}"
     )
 
-    # Agar dono set ho gaye to token option dikhao
     if deal["buyer"]:
         await show_token_option(update, context)
 
@@ -119,28 +121,48 @@ async def show_token_option(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global deal
     query = update.callback_query
+    user_id = query.from_user.id
     await query.answer()
 
     if query.data == "token_bep20":
         deal["token"] = "USDT BEP20"
+        deal["initiator"] = user_id  # jisne token select kiya
+
+        # Jisne token select kiya usko Accept/Reject ka option nahi milega
+        if user_id == deal["buyer_user"]:
+            receiver = deal["seller_user"]
+        else:
+            receiver = deal["buyer_user"]
+
         keyboard = [
             [InlineKeyboardButton("✅ Accept", callback_data="accept"),
              InlineKeyboardButton("❌ Reject", callback_data="reject")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+
         await query.edit_message_text(
             f"💠 Token selected: {deal['token']}\n\n"
             f"⚡ Seller: {deal['seller']}\n"
             f"⚡ Buyer: {deal['buyer']}\n\n"
-            f"👉 Now click Accept/Reject:",
+            f"🔒 Escrow Wallet: `{ESCROW_WALLET}`\n\n"
+            f"👉 Waiting for approval from the counterparty...",
             reply_markup=reply_markup
         )
 
     elif query.data == "accept":
+        if user_id == deal["initiator"]:
+            await query.answer("❌ You cannot accept your own request!", show_alert=True)
+            return
         deal["status"] = "accepted"
-        await query.edit_message_text("✅ Deal Accepted! Funds can now be transferred to Escrow Wallet.")
+        await query.edit_message_text(
+            f"✅ Deal Accepted!\n\n"
+            f"Send funds to Escrow Wallet:\n`{ESCROW_WALLET}`"
+        )
 
     elif query.data == "reject":
+        if user_id == deal["initiator"]:
+            await query.answer("❌ You cannot reject your own request!", show_alert=True)
+            return
         deal["status"] = "rejected"
         await query.edit_message_text("❌ Deal Rejected!")
 
