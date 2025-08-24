@@ -9,6 +9,10 @@ WELCOME_MESSAGE = "I'm normal bot add me grup for deal"
 # Regex pattern for BEP-20 address (starts with 0x and 40 hex chars)
 BEP20_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
+# In-memory storage for addresses
+buyer_address = None
+seller_address = None
+
 # Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = [
@@ -19,6 +23,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # /buyer command
 async def set_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global buyer_address, seller_address
     if len(context.args) != 1:
         await update.message.reply_text("Usage: /buyer {BEP-20 address}")
         return
@@ -26,10 +31,15 @@ async def set_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not BEP20_PATTERN.match(address):
         await update.message.reply_text("❌ Invalid BEP-20 address! It must start with 0x and be 42 characters long.")
         return
+    if seller_address and address.lower() == seller_address.lower():
+        await update.message.reply_text("❌ Buyer and seller address is same. Please use a different address.")
+        return
+    buyer_address = address
     await update.message.reply_text(f"✅ Buyer address set: {address}")
 
 # /seller command
 async def set_seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global buyer_address, seller_address
     if len(context.args) != 1:
         await update.message.reply_text("Usage: /seller {BEP-20 address}")
         return
@@ -37,15 +47,23 @@ async def set_seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not BEP20_PATTERN.match(address):
         await update.message.reply_text("❌ Invalid BEP-20 address! It must start with 0x and be 42 characters long.")
         return
+    if buyer_address and address.lower() == buyer_address.lower():
+        await update.message.reply_text("❌ Buyer and seller address is same. Please use a different address.")
+        return
+    seller_address = address
     await update.message.reply_text(f"✅ Seller address set: {address}")
 
-# /dd command - Deal message
-async def deal_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) != 1:
-        await update.message.reply_text("Usage: /dd {amount}")
-        return
-    amount = context.args[0]
-    message = f"Info -\nDeal amount - {amount}"
+# /dd command - Deal details template
+async def deal_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = (
+        "Hello there,\n"
+        "Kindly tell deal details i.e.\n\n"
+        "Quantity -\n"
+        "Rate -\n"
+        "Conditions (if any) -\n\n"
+        "Remember without it disputes wouldn’t be resolved. Once filled, proceed with "
+        "Specifications of the seller or buyer with /seller or /buyer [CRYPTO ADDRESS]"
+    )
     await update.message.reply_text(message)
 
 if __name__ == "__main__":
@@ -55,7 +73,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("buyer", set_buyer))
     app.add_handler(CommandHandler("seller", set_seller))
-    app.add_handler(CommandHandler("dd", deal_message))
+    app.add_handler(CommandHandler("dd", deal_details))  # /dd is now the deal template
 
     print("Bot is running...")
     app.run_polling()
