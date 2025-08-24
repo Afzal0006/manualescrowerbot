@@ -5,14 +5,24 @@ import re
 BOT_TOKEN = "8051082366:AAECqW7-a_x135g2iDpUG7-1_eYowURM7Bw"
 ESCROW_WALLET = "0xEscrowWalletExample1234567890abcdef12345678"
 
-# Deal storage
-deal = {"seller": None, "buyer": None, "seller_id": None, "buyer_id": None,
-        "seller_username": None, "buyer_username": None, "status": None}
+# Group-wise deal storage
+deals = {}  # {chat_id: {...}}
 
 
 # Validate wallet address
 def valid_wallet(address: str) -> bool:
     return bool(re.fullmatch(r"0x[a-fA-F0-9]{40}", address))
+
+
+def get_deal(chat_id: int):
+    if chat_id not in deals:
+        deals[chat_id] = {
+            "seller": None, "buyer": None,
+            "seller_id": None, "buyer_id": None,
+            "seller_username": None, "buyer_username": None,
+            "status": None, "initiator": None
+        }
+    return deals[chat_id]
 
 
 # /start command
@@ -22,14 +32,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # /seller command
 async def seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    deal = get_deal(chat_id)
+
     user_id = update.effective_user.id
     username = update.effective_user.username or "NoUsername"
 
     if deal["seller"]:
-        await update.message.reply_text("❌ Seller wallet already set.")
+        await update.message.reply_text("❌ Seller wallet already set in this group.")
         return
     if deal["buyer_id"] == user_id:
-        await update.message.reply_text("❌ You cannot be both Buyer and Seller.")
+        await update.message.reply_text("❌ You cannot be both Buyer and Seller in the same deal.")
         return
     if not context.args:
         await update.message.reply_text("⚠️ Usage: /seller <wallet_address>")
@@ -44,19 +57,22 @@ async def seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"⚡ SELLER {username} (ID: {user_id})\n\n💳 Seller Wallet:\n{wallet}")
 
     if deal["buyer"]:
-        await token_ready(update, context)
+        await token_ready(update, context, deal)
 
 
 # /buyer command
 async def buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    deal = get_deal(chat_id)
+
     user_id = update.effective_user.id
     username = update.effective_user.username or "NoUsername"
 
     if deal["buyer"]:
-        await update.message.reply_text("❌ Buyer wallet already set.")
+        await update.message.reply_text("❌ Buyer wallet already set in this group.")
         return
     if deal["seller_id"] == user_id:
-        await update.message.reply_text("❌ You cannot be both Buyer and Seller.")
+        await update.message.reply_text("❌ You cannot be both Buyer and Seller in the same deal.")
         return
     if not context.args:
         await update.message.reply_text("⚠️ Usage: /buyer <wallet_address>")
@@ -71,11 +87,11 @@ async def buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"⚡ BUYER {username} (ID: {user_id})\n\n💳 Buyer Wallet:\n{wallet}")
 
     if deal["seller"]:
-        await token_ready(update, context)
+        await token_ready(update, context, deal)
 
 
 # Show /token option
-async def token_ready(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def token_ready(update: Update, context: ContextTypes.DEFAULT_TYPE, deal: dict):
     keyboard = [[InlineKeyboardButton("USDT (BEP20)", callback_data="token_bep20")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("✅ Both wallets set!\nNow select a token:", reply_markup=reply_markup)
@@ -84,6 +100,9 @@ async def token_ready(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Handle button clicks
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    chat_id = query.message.chat.id
+    deal = get_deal(chat_id)
+
     user_id = query.from_user.id
     await query.answer()
 
