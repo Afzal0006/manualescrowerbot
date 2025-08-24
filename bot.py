@@ -21,6 +21,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup(buttons)
     await update.message.reply_text(WELCOME_MESSAGE, reply_markup=keyboard)
 
+# Helper function to display both addresses
+def addresses_message():
+    return (
+        f"✅ Buyer address set: {buyer_address if buyer_address else 'Not set'}\n"
+        f"✅ Seller address set: {seller_address if seller_address else 'Not set'}"
+    )
+
 # /buyer command
 async def set_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global buyer_address, seller_address
@@ -35,7 +42,7 @@ async def set_buyer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Buyer and seller address is same. Please use a different address.")
         return
     buyer_address = address
-    await update.message.reply_text(f"✅ Buyer address set: {address}")
+    await update.message.reply_text(addresses_message())
 
 # /seller command
 async def set_seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -51,7 +58,7 @@ async def set_seller(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Buyer and seller address is same. Please use a different address.")
         return
     seller_address = address
-    await update.message.reply_text(f"✅ Seller address set: {address}")
+    await update.message.reply_text(addresses_message())
 
 # /dd command - Deal details template
 async def deal_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
