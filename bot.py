@@ -4,7 +4,7 @@ from telegram import Bot
 
 # ===== CONFIG =====
 BSC_API_KEY = "EF7ZUA5EZKWDTEJSH525RNRCSDQQ1TVS6P"  # Aapki BscScan API key
-WALLET_ADDRESS = "0xfcfdcad750dcb37211ec494a0a625dba3e99b4d5"  # Aapka BEP-20 wallet address
+WALLET_ADDRESS = "0xE84Dd85B8e37334Da646a14A47c8fEA258a68f31"  # Aapka BEP-20 wallet address
 TOKEN_CONTRACT = ""  # Agar specific token track karna ho to contract address yahan, warna leave blank
 TELEGRAM_BOT_TOKEN = "8466069044:AAGchh9WGQZh1fYUQkLdNpFgKsM5IT6mgEc"  # Telegram bot token
 TELEGRAM_CHAT_ID = -1002591009357  # Telegram group chat ID
